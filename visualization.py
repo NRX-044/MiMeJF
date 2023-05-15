@@ -87,5 +87,53 @@ def feature_plot(decomp_fm,
         fig.savefig(savepath,dpi=800)
 
 
+def sample_plot(decomp_fm,
+                samp_list,
+                label_dict,
+                outpath):
+    plt.style.use("fivethirtyeight")
+    fig = plt.figure(figsize=(10,10))
+    color_box = ['#37AB65', '#3DF735', '#AD6D70', '#EC2504', '#8C0B90', '#C0E4FF', '#27B502', '#7C60A8', '#CF95D7', '#145JKH']
+    group_type = list(set(label_dict.values()))   
+    for lf in range(decomp_fm.lf):
+        if decomp_fm.variance:
+            var_exp = decomp_fm.variance[lf]*100
+        ax = fig.add_subplot(3,1,lf+1)
+        ax.set_xticks([x for x in range(len(samp_list))])
+
+        ax.set_xticklabels(samp_list,rotation=45,fontsize =  10)
+        print(len(samp_list))
+        if decomp_fm.weight:
+            print(f"present the weight of lf {lf} in microbiome functional profiling tensor: ")
+            print(decomp_fm.weight[0][lf])
+            print(f"present the weight of lf {lf} in metabolites profiling matrix: ")
+            print(decomp_fm.weight[1][lf])
+        
+        candidate_ftdist = decomp_fm.tfm[2][:,lf]
+  
+        min_bound = min(candidate_ftdist)-0.2    
+        max_bound = max(candidate_ftdist)+0.2
+        
+        ax.set_ylim(min_bound,max_bound)
+        
+        for idx in range(len(group_type)):
+            sub_sample = [x for x in samp_list if label_dict[x] == group_type[idx]]
+            x_coor = [samp_list.index(x) for x in sub_sample]
+            sub_ftdist = candidate_ftdist[x_coor]
+            ax.scatter(x_coor,sub_ftdist,color=color_box[idx],alpha=0.5,label = group_type[idx])
+        
+        if decomp_fm.variance:
+            ax.set_title(f'variance explained: {var_exp}%',fontsize=10)
+        elif decomp_fm.weight:
+            ax.set_title(f'tensor weight: {decomp_fm.weight[0][lf]} matrix weight: {decomp_fm.weight[1][lf]}',fontsize=10)
+        ax.legend(loc = 'upper right',fontsize=10)
+    plt.tight_layout()
+    plt.show()
+
+    outpath = re.sub('/$','',outpath)
+    outpath = outpath + '/'
+    savepath = outpath + '/' + 'samp_dist.pdf'
+    fig.savefig(savepath,dpi=800)
+
     
     

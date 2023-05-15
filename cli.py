@@ -121,6 +121,7 @@ def main():
             fac_process.factorization()
         elif mdl == 'structure revealing':
             fac_process = StructRevealFac(c_tensor,c_matrix,num_lf)
+            fac_process.factorization()
         fac_process.get_metadata(mi_list,me_list,pwy_list,samp_list)
         fac_process.type_map(tag_dict)
         

@@ -31,7 +31,6 @@ def als_optimize(fm,
             V = V + np.matmul(fm.mfm.T,fm.mfm)
         pinverseV = np.matmul(np.linalg.pinv(np.matmul(V.T,V)),V.T)
         F = np.matmul(np.matmul(comp_unfold,kr_product.T),pinverseV)
-        #F = np.matmul(M1,pinverseV)
         return F
     else:
         M = np.matmul(mb_df.T,np.linalg.pinv(fm.tfm[2]).T)
@@ -51,7 +50,7 @@ def funcgrad_gen(mm_tensor,
 
     
     def obj_f(x,*args):
-        mm_tensor,mb_mat,alpha,beta_ten,beta_mat,eps,lf = args
+        mm_tensor,mb_mat,alpha,beta_ten,beta_mat,eps,mask,lf = args
         shape = list(mm_tensor.shape)
         mshape = list(mb_mat.shape)
         
@@ -71,12 +70,16 @@ def funcgrad_gen(mm_tensor,
         cnt_idx+=lf
         mweight = x[cnt_idx:cnt_idx+lf].reshape(1,lf)        
         
-        '''reconstruct tensor by factor matrices and weights of components'''
+        #reconstruct tensor by factor matrices and weights of components
         mode2_tenkai = np.matmul(tfm[1]*tweight,raw_krp(tfm[2],tfm[0]).T)
         rc_tensor =refold(mode2_tenkai,1,shape)
-        '''reconstruct matrix by factor matrices and weights of components'''
+        #reconstruct matrix by factor matrices and weights of components
         rc_matrix = np.matmul(tfm[2]*mweight,mfm.T)
-        ''' add 0.5 multiplication for derivative computation efficiency'''
+        if mask:
+            rc_tensor = mask[0]*rc_tensor
+            rc_matrix = mask[1]*rc_matrix
+            
+        #add 0.5 multiplication for derivative computation efficiency
         obj_func = 0.5*np.square(np.linalg.norm(mm_tensor))
         -np.sum(np.multiply(mm_tensor,rc_tensor)) 
         + 0.5*np.square(np.linalg.norm(rc_tensor))
@@ -98,7 +101,7 @@ def funcgrad_gen(mm_tensor,
     #each element except last two in grad is a numpy array of shape(feature_length,r),the last two elements are  arrays of shape(,r)
        
     def total_grad(x,*args):
-        mm_tensor,mb_mat,alpha,beta_ten,beta_mat,eps,lf = args
+        mm_tensor,mb_mat,alpha,beta_ten,beta_mat,eps,mask,lf = args
         shape = list(mm_tensor.shape)
         mshape = list(mb_mat.shape)
         
@@ -179,7 +182,8 @@ def funcgrad_gen(mm_tensor,
 #prototype function for coupling microbes-predicted functional pathways 3-order tensor and metabolites matrix
 #return normalized unit length factor matrices of each dimensions and corresponding weight.
 def joint_mt(mm_tensor,
-             mb_mat,lf,
+             mb_mat,
+             lf,
              tmask=np.array([]),
              mmask=np.array([])):
     #first initialize factorized rank-1 tensors and matrices using SVD
@@ -256,14 +260,22 @@ def joint_mt(mm_tensor,
 ## BMC Bioinformatics 15, 239 (2014). https://doi.org/10.1186/1471-2105-15-239
 def all_in_one_mt(mm_tensor,
                   mb_mat,
-                  lf):
+                  lf,
+                  cparam,
+                  tmask=np.array([]),
+                  mmask=np.array([])):
     #get the initial values first
     try: 
         if len(mm_tensor.shape) != 3:
             raise ValueError("only accept 3-way tensor as input")
     except ValueError as ve:
         print("error:",ve)
-           
+
+    if tmask.size and mmask.size:
+        mask = [tmask,mmask]
+    else:
+        mask = []
+
     init_fm = factor_matrix()
     init_fm.tfm = []
     #SVD-based factor matrices initialization
@@ -302,18 +314,18 @@ def all_in_one_mt(mm_tensor,
     
     
     # generate objective function and corresponding gradients 
-    func,grad = funcgrad_gen(mm_tensor,mb_mat,init_fm)
+    func,grad = funcgrad_gen(mm_tensor,mb_mat,init_fm,mask)
     print("obj function and gradient generation completed\n")
     
     
     
     
     # the constant argument in model
-    ALPHA = 1
-    BETA_TEN = 1e-3
-    BETA_MAT = 1e-3
-    EPS = 1e-8
-    ARGS = (mm_tensor,mb_mat,ALPHA,BETA_TEN,BETA_MAT,EPS,lf)
+    ALPHA = cparam['alpha']
+    BETA_TEN = cparam['beta_ten']
+    BETA_MAT = cparam['beta_mat']
+    EPS = cparam['eps']
+    ARGS = (mm_tensor,mb_mat,ALPHA,BETA_TEN,BETA_MAT,EPS,mask,lf)
 
     OPTS = {'maxiter' : None,
             'disp' : True,

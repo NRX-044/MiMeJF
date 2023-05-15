@@ -54,11 +54,17 @@ class BasicFac(factor_matrix):
             print("error:",te)
 
         if not self.mask:
-            res = joint_mt(self.tensor,self.matrix,self.lf)
+            res = joint_mt(self.tensor,
+                           self.matrix,
+                           self.lf)
         else:
             tmask = self.mask[0]
             mmask = self.mask[1]
-            res = joint_mt(self.tensor,self.matrix,self.lf,tmask,mmask)
+            res = joint_mt(self.tensor,
+                           self.matrix,
+                           self.lf,
+                           tmask,
+                           mmask)
         self.tfm = res.tfm
         self.mfm = res.mfm
 
@@ -145,4 +151,34 @@ class StructRevealFac(factor_matrix):
         except TypeError as te:
             print("error:",te)
         
+        if not self.mask:
+            res = all_in_one_mt(self.tensor,
+                                self.matrix,
+                                self.lf,
+                                self.cparam)
+        else:
+            tmask = self.mask[0]
+            mmask = self.mask[1]
+            res =  all_in_one_mt(self.tensor,
+                                self.matrix,
+                                self.lf,
+                                self.cparam,
+                                tmask,
+                                mmask)
+        tshape = list(self.tensor.shape)
+        mshape = list(self.matrix.shape)
+        self.tfm = [np.zeros((tshape[x],self.lf),dtype=float) for x in range(len(tshape))]
+        cnt_idx = 0
+        for d in range(len(tshape)):
+            if d < 1:
+                self.tfm[d] = res.x[0:(tshape[d]*self.lf)].reshape(tshape[d],self.lf)
+            else:
+                cnt_idx+=tshape[d-1]*self.lf
+                self.tfm[d] = res.x[cnt_idx:(cnt_idx+tshape[d]*self.lf)].reshape(tshape[d],self.lf)
+        cnt_idx+=tshape[-1]*self.lf
+        self.mfm = res.x[cnt_idx:(cnt_idx+mshape[-1]*self.lf)].reshape(mshape[-1],self.lf)
+        cnt_idx+=mshape[-1]*self.lf
+        self.weight.append(res.x[cnt_idx:cnt_idx+self.lf].reshape(1,self.lf).squeeze())
+        cnt_idx+=self.lf
+        self.weight.append(res.x[cnt_idx:cnt_idx+self.lf].reshape(1,self.lf).squeeze())
         

@@ -70,7 +70,6 @@ class factor_matrix:
     # sample-phenotype mapper
     def type_map(self,
                 tag_dict):
-        #TODO
         try:
             if not self.metalist['sample']:
                 raise ValueError("can not find list of samples, should attain metadata first\n")

@@ -19,7 +19,7 @@ def separation_test(ftdist_df,final_sample_list,label_dict):
         sub_idx = [final_sample_list.index(x) for x in sub_sample]
         sub_ftdist = ftdist_df[sub_idx,:]
         sub_collection.append(sub_ftdist)
-    
+
     diff_mat = np.mean(sub_collection[0],axis=0)-np.mean(sub_collection[1],axis=0)
     # it should be of shape (2,)
 
@@ -52,13 +52,13 @@ def rmse_eval(fm,tensor,mat,mask=None):
     rc_tensor = refold(mode2_tenkai,1,shape)
     rc_matrix = np.matmul(fm.tfm[2],fm.mfm.T)
     if mask:
-        rc_tensor = mask[0]*rc_tensor
-        rc_matrix = mask[1]*rc_matrix
-        est_err += np.linalg.norm(tensor-rc_tensor)/np.sqrt(len(tensor))
-        est_err += np.linalg.norm(mat-rc_matrix)/np.sqrt(len(mat))
+        idx_1 = np.nonzero(mask[0])
+        idx_2 = np.nonzero(mask[1])
+        est_err += np.linalg.norm(tensor[idx_1]-rc_tensor[idx_1])/np.sqrt(tensor[idx_1].size)
+        est_err += np.linalg.norm(mat[idx_2]-rc_matrix[idx_2])/np.sqrt(mat[idx_2].size)
     else:
-        est_err += np.linalg.norm(tensor-rc_tensor)/np.sqrt(len(tensor))
-        est_err += np.linalg.norm(mat-rc_matrix)/np.sqrt(len(mat))
+        est_err += np.linalg.norm(tensor-rc_tensor)/np.sqrt(tensor.size)
+        est_err += np.linalg.norm(mat-rc_matrix)/np.sqrt(mat.size)
 
     return est_err
 
@@ -131,8 +131,14 @@ def random_cv(sim_tensor,sim_matrix,tmask,mmask,lf,approach):
     
     inv_tmask = 1-tmask
     inv_mmask = 1-mmask
+    tidx = np.nonzero(tmask)
+    midx = np.nonzero(mmask)
+    itidx = np.nonzero(inv_tmask)
+    imidx = np.nonzero(inv_mmask)
     train_tensor = tmask * sim_tensor 
     train_matrix = mmask * sim_matrix
+
+
 
     shape = list(sim_tensor.shape)
 
@@ -152,16 +158,18 @@ def random_cv(sim_tensor,sim_matrix,tmask,mmask,lf,approach):
     re_trainmode2_tenkai = np.matmul(decomp_fm.tfm[1],decomp_fm.kr4t_product(1).T)
     re_train_tensor = refold(re_trainmode2_tenkai,1,shape)
     re_train_matrix = np.matmul(decomp_fm.tfm[2],decomp_fm.mfm.T)
-    #re_train_tensor = tmask*re_train_tensor
-    #re_train_matrix = mmask*re_train_matrix
+
     
-    train_rce = np.linalg.norm(tmask*(sim_tensor-re_train_tensor))/np.linalg.norm(tmask*sim_tensor)
-    train_rce += np.linalg.norm(mmask*(sim_matrix-re_train_matrix))/np.linalg.norm(mmask*sim_matrix)
-    print("final rce of train set is: ",train_rce)
+    weight_tensor = sim_tensor.size/(sim_tensor.size+sim_matrix.size)
+    weight_matrix = sim_matrix.size/(sim_tensor.size+sim_matrix.size)
+
+    train_rce = weight_tensor*np.linalg.norm(sim_tensor[tidx]-re_train_tensor[tidx])/np.linalg.norm(sim_tensor[tidx])
+    train_rce += weight_matrix*np.linalg.norm(sim_matrix[midx]-re_train_matrix[midx])/np.linalg.norm(sim_matrix[midx])
+
     
     #compute the RMSE of test set        
-    test_rce = np.linalg.norm(inv_tmask*(sim_tensor-re_train_tensor))/np.linalg.norm(inv_tmask*sim_tensor)
-    test_rce += np.linalg.norm(inv_mmask*(sim_matrix--re_train_matrix))/np.linalg.norm(inv_mmask*sim_matrix)
-    print("final rce of test set is: ",test_rce)
+    test_rce = weight_tensor*np.linalg.norm(sim_tensor[itidx]-re_train_tensor[itidx])/np.linalg.norm(sim_tensor[itidx])
+    test_rce += weight_matrix*np.linalg.norm(sim_matrix[imidx]-re_train_matrix[imidx])/np.linalg.norm(sim_matrix[imidx])
+
         
     return train_rce,test_rce
